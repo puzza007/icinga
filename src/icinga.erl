@@ -42,8 +42,8 @@ handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
                                   [Msg, SendNcsa, SendNcsaCfg, IcingaHostname])
                    ),
             Res = ubic_os:cmd(Cmd),
-            lager:debug("Icinga command: ~s", [Cmd]),
-            lager:debug("Icinga result: ~s", [Res])
+            lager:info("Icinga command: ~s", [Cmd]),
+            lager:info("Icinga result: ~s", [Res])
     end,
     {noreply, State}.
 
