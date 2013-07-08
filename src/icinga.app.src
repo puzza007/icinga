@@ -11,7 +11,7 @@
   {mod, { icinga_app, []}},
   {env, [
          {server_hostname, "localhost"},
-         {send_ncsa_executable, "/usr/sbin/send_ncsa"},
+         {send_ncsa_executable, "/usr/sbin/send_nsca"},
          {send_ncsa_config, "/etc/send_nsca.cfg"}
         ]
   }
