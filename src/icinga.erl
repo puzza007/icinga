@@ -10,7 +10,7 @@
 
 -define(SERVER, ?MODULE). 
 
--type return_code() :: ok | warning | critical.
+-type return_code() :: ok | warning | unknown | critical.
 
 -record(state, {}).
 
@@ -75,6 +75,6 @@ return_code(warning) ->
     "1";
 return_code(critical) ->
     "2";
-return_code(_) ->
+return_code(unknown) ->
     "3".
     
