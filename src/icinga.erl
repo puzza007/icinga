@@ -64,7 +64,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% * <plugin_output>=output from host/service check
 
 format(ReturnCode, ServiceDescription, PluginOutput) ->
-    {ok, Hostname} = inet:gethostname(),
+    {ok, Hostname} = ubic_application:get_env(icinga, client_hostname),
     I = iolist_to_binary(PluginOutput),
     I2 = binary:replace(I, <<"\n">>, <<" ">>, [global]),
     [Hostname, "\t", ServiceDescription, "\t", return_code(ReturnCode), "\t", I2].
