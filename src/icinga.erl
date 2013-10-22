@@ -17,7 +17,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec submit(return_code(), iolist(), iolist()) -> ok.
+-spec submit(return_code(), iodata(), iodata()) -> ok.
 submit(ReturnCode, ServiceDescription, PluginOutput) ->
     gen_server:cast(?SERVER, {submit, ReturnCode, ServiceDescription, PluginOutput}).
 
