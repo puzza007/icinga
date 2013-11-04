@@ -8,7 +8,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE). 
+-define(SERVER, ?MODULE).
 
 -type return_code() :: ok | warning | unknown | critical.
 
@@ -29,18 +29,18 @@ handle_call(_Request, _From, State) ->
     {reply, Reply, State}.
 
 handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
-    {ok, IcingaHostname} = ubic_application:get_env(icinga, server_hostname),
-    {ok, SendNcsa} = ubic_application:get_env(icinga, send_ncsa_executable),
-    {ok, SendNcsaCfg} = ubic_application:get_env(icinga, send_ncsa_config),
-    case IcingaHostname of
+    case icinga_cfg:server_hostname() of
         undefined ->
             ok;
-        _ ->
+        IcingaHostname ->
             Msg = format(ReturnCode, ServiceDescription, PluginOutput),
-            Cmd = lists:flatten(
-                    io_lib:format("echo \"~s\" | ~s -c ~s -H ~s",
-                                  [Msg, SendNcsa, SendNcsaCfg, IcingaHostname])
-                   ),
+            CmdFormat = "echo \"~s\" | ~s -c ~s -H ~s",
+            CmdComponents = [ Msg
+                            , icinga_cfg:send_ncsa_executable()
+                            , icinga_cfg:send_ncsa_config()
+                            , IcingaHostname
+                            ],
+            Cmd = lists:flatten(io_lib:format(CmdFormat, CmdComponents)),
             Res = ubic_os:cmd(Cmd),
             lager:info("Icinga command: ~s", [Cmd]),
             lager:info("Icinga result: ~s", [Res])
@@ -63,11 +63,18 @@ code_change(_OldVsn, State, _Extra) ->
 %% * <return_code>=numeric return code (0,1,2,3 as explained here)
 %% * <plugin_output>=output from host/service check
 
-format(ReturnCode, ServiceDescription, PluginOutput) ->
-    {ok, Hostname} = ubic_application:get_env(icinga, client_hostname),
-    I = iolist_to_binary(PluginOutput),
-    I2 = binary:replace(I, <<"\n">>, <<" ">>, [global]),
-    [Hostname, "\t", ServiceDescription, "\t", return_code(ReturnCode), "\t", I2].
+format(ReturnCode, ServiceDescription, PluginOutput1) ->
+    PluginOutput2 = iolist_to_binary(PluginOutput1),
+    PluginOutput3 = binary:replace(PluginOutput2, <<"\n">>, <<" ">>, [global]),
+    Hostname = icinga_cfg:client_hostname(),
+    [ Hostname
+    , "\t"
+    , ServiceDescription
+    , "\t"
+    , return_code(ReturnCode)
+    , "\t"
+    , PluginOutput3
+    ].
 
 return_code(ok) ->
     "0";
@@ -77,4 +84,3 @@ return_code(critical) ->
     "2";
 return_code(unknown) ->
     "3".
-    
