@@ -28,12 +28,12 @@ end_per_testcase(_TestCase, _Config) ->
 groups() ->
     [].
 
-all() -> 
+all() ->
     [t_submit].
 
 t_submit(_Config) ->
     meck:new(icinga_cfg),
-    meck:new(ubic_os),
+    meck:new(icinga_os),
 
     meck:expect(icinga_cfg, server_hostname     , fun() -> "localhost" end),
     meck:expect(icinga_cfg, send_ncsa_executable, fun() -> "/sbin/send_nsca" end),
@@ -41,9 +41,9 @@ t_submit(_Config) ->
     meck:expect(icinga_cfg, client_hostname     , fun() -> "dev-build" end),
 
     Cmd = "echo \"dev-build\tservice\t0\tcomplicated error msg\" | /sbin/send_nsca -c /etc/send_nsca.cfg -H localhost",
-    meck:expect(ubic_os, cmd, fun(X) -> X = Cmd, ok end),
+    meck:expect(icinga_os, cmd, fun(X) -> X = Cmd, ok end),
 
     {noreply, _State} = icinga:handle_cast({submit, ok, "service", "complicated\nerror\nmsg"}, fake_state),
     
-    meck:unload(ubic_os),
+    meck:unload(icinga_os),
     meck:unload(icinga_cfg).

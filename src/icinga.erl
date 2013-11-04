@@ -41,7 +41,7 @@ handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
                             , IcingaHostname
                             ],
             Cmd = lists:flatten(io_lib:format(CmdFormat, CmdComponents)),
-            Res = ubic_os:cmd(Cmd),
+            Res = icinga_os:cmd(Cmd),
             lager:info("Icinga command: ~s", [Cmd]),
             lager:info("Icinga result: ~s", [Res])
     end,
