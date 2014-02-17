@@ -6,14 +6,15 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  lager
                  ]},
   {mod, { icinga_app, []}},
   {env, [
          {server_hostname, "localhost"},
-         {client_hostname, "localhost"},
-         {send_ncsa_executable, "/usr/sbin/send_nsca"},
-         {send_ncsa_config, "/etc/send_nsca.cfg"}
+         {server_port, 5667},
+         {server_password, "password"},
+         {client_hostname, "localhost"}
         ]
   }
  ]}.

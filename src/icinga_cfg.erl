@@ -1,24 +1,27 @@
 -module(icinga_cfg).
 
 -export([ server_hostname/0
-        , send_ncsa_executable/0
-        , send_ncsa_config/0
+        , server_port/0
+        , server_password/0
         , client_hostname/0
         ]).
 
 
+-spec server_hostname() -> inet:hostname().
 server_hostname() ->
     {ok, IcingaHostname} = application:get_env(icinga, server_hostname),
     IcingaHostname.
 
-send_ncsa_executable() ->
-    {ok, SendNcsa} = application:get_env(icinga, send_ncsa_executable),
-    SendNcsa.
+-spec server_port() -> pos_integer().
+server_port() ->
+    application:get_env(icinga, server_port, 5667).
 
-send_ncsa_config() ->
-    {ok, SendNcsaCfg} = application:get_env(icinga, send_ncsa_config),
-    SendNcsaCfg.
+-spec server_password() -> binary().
+server_password() ->
+    {ok, Password} = application:get_env(icinga, server_password),
+    list_to_binary(Password).
 
+-spec client_hostname() -> inet:hostname().
 client_hostname() ->
     {ok, Hostname} = application:get_env(icinga, client_hostname),
     Hostname.

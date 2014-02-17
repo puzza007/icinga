@@ -10,7 +10,8 @@
 
 -define(SERVER, ?MODULE).
 
--type return_code() :: ok | warning | unknown | critical.
+-type return_code() :: ok | warning | critical.
+-export_type([return_code/0]).
 
 -record(state, {}).
 
@@ -25,25 +26,20 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+    {stop, unhandled_call, State}.
 
 handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
     case icinga_cfg:server_hostname() of
         undefined ->
             ok;
         IcingaHostname ->
-            Msg = format(ReturnCode, ServiceDescription, PluginOutput),
-            CmdFormat = "echo \"~s\" | ~s -c ~s -H ~s",
-            CmdComponents = [ Msg
-                            , icinga_cfg:send_ncsa_executable()
-                            , icinga_cfg:send_ncsa_config()
-                            , IcingaHostname
-                            ],
-            Cmd = lists:flatten(io_lib:format(CmdFormat, CmdComponents)),
-            Res = icinga_os:cmd(Cmd),
-            lager:info("Icinga command: ~s", [Cmd]),
-            lager:info("Icinga result: ~s", [Res])
+            IcingaPort = icinga_cfg:server_port(),
+            ClientHost = icinga_cfg:client_hostname(),
+            IcingaPassword = icinga_cfg:server_password(),
+            Timeout = 30000,
+            ServiceDescriptionBin = iolist_to_binary(ServiceDescription),
+            PluginOutputBin = iolist_to_binary(PluginOutput),
+            ok = send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout)
     end,
     {noreply, State}.
 
@@ -56,31 +52,15 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% <host_name>[tab]<svc_description>[tab]<return_code>[tab]<plugin_output>[newline]
-
-%% * <host_name>=short name of the host that the service is associated with (as defined in the host_name directive of the service definition)
-%% * <svc_description>=description of the service (as defined in the service_description directive of the service definition)
-%% * <return_code>=numeric return code (0,1,2,3 as explained here)
-%% * <plugin_output>=output from host/service check
-
-format(ReturnCode, ServiceDescription, PluginOutput1) ->
-    PluginOutput2 = iolist_to_binary(PluginOutput1),
-    PluginOutput3 = binary:replace(PluginOutput2, <<"\n">>, <<" ">>, [global]),
-    Hostname = icinga_cfg:client_hostname(),
-    [ Hostname
-    , "\t"
-    , ServiceDescription
-    , "\t"
-    , return_code(ReturnCode)
-    , "\t"
-    , PluginOutput3
-    ].
-
-return_code(ok) ->
-    "0";
-return_code(warning) ->
-    "1";
-return_code(critical) ->
-    "2";
-return_code(unknown) ->
-    "3".
+send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) ->
+    Fun =
+        fun() ->
+                case send_nsca:send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) of
+                    ok ->
+                        lager:info("Icinga: ~s:~B - ~s, ~s, ~s", [IcingaHostname, IcingaPort, ReturnCode, ServiceDescriptionBin, PluginOutputBin]);
+                    {error, Error} ->
+                        lager:error("Icinga: ~p", [Error])
+                end
+        end,
+    _Pid = spawn(Fun),
+    ok.
