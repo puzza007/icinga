@@ -3,6 +3,7 @@
 -export([ server_hostname/0
         , server_port/0
         , server_password/0
+        , server_timeout/0
         , client_hostname/0
         ]).
 
@@ -20,6 +21,10 @@ server_port() ->
 server_password() ->
     {ok, Password} = application:get_env(icinga, server_password),
     list_to_binary(Password).
+
+-spec server_timeout() -> pos_integer().
+server_timeout() ->
+    application:get_env(icinga, server_timeout, 5000).
 
 -spec client_hostname() -> inet:hostname().
 client_hostname() ->

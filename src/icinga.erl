@@ -36,7 +36,7 @@ handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
             IcingaPort = icinga_cfg:server_port(),
             ClientHost = icinga_cfg:client_hostname(),
             IcingaPassword = icinga_cfg:server_password(),
-            Timeout = 30000,
+            Timeout = icinga_cfg:server_timeout(),
             ServiceDescriptionBin = iolist_to_binary(ServiceDescription),
             PluginOutputBin = iolist_to_binary(PluginOutput),
             ok = send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout)

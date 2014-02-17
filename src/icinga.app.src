@@ -14,6 +14,7 @@
          {server_hostname, "localhost"},
          {server_port, 5667},
          {server_password, "password"},
+         {server_timeout, 5000},
          {client_hostname, "localhost"}
         ]
   }
