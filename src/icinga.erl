@@ -1,66 +1,55 @@
 -module(icinga).
 
--behaviour(gen_server).
 
--export([start_link/0]).
--export([submit/3]).
-
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
-
--define(SERVER, ?MODULE).
+-export([submit_async/3]).
+-export([submit_sync/3]).
 
 -type return_code() :: ok | warning | critical.
 -export_type([return_code/0]).
 
--record(state, {}).
+-spec submit_async(return_code(), iodata(), iodata()) -> ok.
+submit_async(ReturnCode, ServiceDescription, PluginOutput) ->
+    submit(ReturnCode, ServiceDescription, PluginOutput, fun send_async/8).
 
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+-spec submit_sync(return_code(), iodata(), iodata()) -> ok | {error, any()}.
+submit_sync(ReturnCode, ServiceDescription, PluginOutput) ->
+    submit(ReturnCode, ServiceDescription, PluginOutput, fun send_sync/8).
 
--spec submit(return_code(), iodata(), iodata()) -> ok.
-submit(ReturnCode, ServiceDescription, PluginOutput) ->
-    gen_server:cast(?SERVER, {submit, ReturnCode, ServiceDescription, PluginOutput}).
+submit(ReturnCode, ServiceDescription, PluginOutput, SendFun)
+  when ReturnCode =:= ok orelse
+       ReturnCode =:= warning orelse
+       ReturnCode =:= critical ->
+    IcingaHostname = icinga_cfg:server_hostname(),
+    IcingaPort = icinga_cfg:server_port(),
+    ClientHost = icinga_cfg:client_hostname(),
+    IcingaPassword = icinga_cfg:server_password(),
+    Timeout = icinga_cfg:server_timeout(),
+    ServiceDescriptionBin = iolist_to_binary(ServiceDescription),
+    PluginOutputBin = iolist_to_binary(PluginOutput),
+    SendFun(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout).
 
-init([]) ->
-    {ok, #state{}}.
-
-handle_call(_Request, _From, State) ->
-    {stop, unhandled_call, State}.
-
-handle_cast({submit, ReturnCode, ServiceDescription, PluginOutput}, State) ->
-    case icinga_cfg:server_hostname() of
-        undefined ->
-            ok;
-        IcingaHostname ->
-            IcingaPort = icinga_cfg:server_port(),
-            ClientHost = icinga_cfg:client_hostname(),
-            IcingaPassword = icinga_cfg:server_password(),
-            Timeout = icinga_cfg:server_timeout(),
-            ServiceDescriptionBin = iolist_to_binary(ServiceDescription),
-            PluginOutputBin = iolist_to_binary(PluginOutput),
-            ok = send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout)
-    end,
-    {noreply, State}.
-
-handle_info(_Info, State) ->
-    {noreply, State}.
-
-terminate(_Reason, _State) ->
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) ->
+send_async(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) ->
     Fun =
         fun() ->
                 case send_nsca:send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) of
                     ok ->
-                        lager:info("Icinga: ~s:~B - ~s, ~s, ~s", [IcingaHostname, IcingaPort, ReturnCode, ServiceDescriptionBin, PluginOutputBin]);
+                        Args = [IcingaHostname, IcingaPort, ReturnCode, ServiceDescriptionBin, PluginOutputBin],
+                        lager:info("Icinga: ~s:~B - ~s, ~s, ~s", Args);
                     {error, Error} ->
-                        lager:error("Icinga: ~p", [Error])
+                        Args = [Error, IcingaHostname, IcingaPort, ReturnCode, ServiceDescriptionBin, PluginOutputBin],
+                        lager:error("Icinga: ~p from: ~s:~B - ~s, ~s, ~s", Args)
                 end
         end,
     _Pid = spawn(Fun),
     ok.
+
+send_sync(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) ->
+    case send_nsca:send(IcingaHostname, IcingaPort, IcingaPassword, ReturnCode, ClientHost, ServiceDescriptionBin, PluginOutputBin, Timeout) of
+        ok ->
+            Args = [IcingaHostname, IcingaPort, ReturnCode, ServiceDescriptionBin, PluginOutputBin],
+            lager:info("Icinga: ~s:~B - ~s, ~s, ~s", Args),
+            ok;
+        {error, Error} = E ->
+            lager:error("Icinga: ~p", [Error]),
+            E
+    end.

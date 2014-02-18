@@ -49,24 +49,20 @@ send(IcingaHost, Port, Password, ReturnCode, Host, Service, Status, Timeout) whe
       is_list(Host) andalso
       is_binary(Service) andalso
       is_binary(Status) ->
-    case return_code(ReturnCode) of
+    case connect_and_get_keys(IcingaHost, Port, Timeout) of
+        {ok, Sock, XorKey, Timestring} ->
+            ReturnCodeInt = return_code(ReturnCode),
+            HostBin = list_to_binary(Host),
+            StringToSendWithoutCrc = pack(0, Timestring, ReturnCodeInt, HostBin, Service, Status),
+            Crc = erlang:crc32(StringToSendWithoutCrc),
+            StringToSendWithCrc = pack(Crc, Timestring, ReturnCodeInt, HostBin, Service, Status),
+            EncryptedStringToSend = xor_with_key(XorKey, StringToSendWithCrc),
+            EncryptedStringToSend2 = xor_with_key(Password, EncryptedStringToSend),
+            Result = gen_tcp:send(Sock, EncryptedStringToSend2),
+            ok = gen_tcp:close(Sock),
+            Result;
         {error, _} = Error ->
-            Error;
-        ReturnCodeInt ->
-            case connect_and_get_keys(IcingaHost, Port, Timeout) of
-                {ok, Sock, XorKey, Timestring} ->
-                    HostBin = list_to_binary(Host),
-                    StringToSendWithoutCrc = pack(0, Timestring, ReturnCodeInt, HostBin, Service, Status),
-                    Crc = erlang:crc32(StringToSendWithoutCrc),
-                    StringToSendWithCrc = pack(Crc, Timestring, ReturnCodeInt, HostBin, Service, Status),
-                    EncryptedStringToSend = xor_with_key(XorKey, StringToSendWithCrc),
-                    EncryptedStringToSend2 = xor_with_key(Password, EncryptedStringToSend),
-                    Result = gen_tcp:send(Sock, EncryptedStringToSend2),
-                    ok = gen_tcp:close(Sock),
-                    Result;
-                {error, _} = Error ->
-                    Error
-            end
+            Error
     end.
 
 xor_with_key(Key, Bin) when is_binary(Key) andalso is_binary(Bin) ->
@@ -97,6 +93,4 @@ return_code(ok) ->
 return_code(warning) ->
     1;
 return_code(critical) ->
-    2;
-return_code(_Unknown) ->
-    {error, unknown_return_code}.
+    2.

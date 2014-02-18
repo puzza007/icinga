@@ -33,17 +33,21 @@ all() ->
 
 t_submit(_Config) ->
     meck:new(icinga_cfg),
-    meck:new(icinga_os),
+    meck:new(send_nsca),
 
-    meck:expect(icinga_cfg, server_hostname     , fun() -> "localhost" end),
-    meck:expect(icinga_cfg, send_ncsa_executable, fun() -> "/sbin/send_nsca" end),
-    meck:expect(icinga_cfg, send_ncsa_config    , fun() -> "/etc/send_nsca.cfg" end),
-    meck:expect(icinga_cfg, client_hostname     , fun() -> "dev-build" end),
+    meck:expect(icinga_cfg, server_hostname, fun() -> "icserv" end),
+    meck:expect(icinga_cfg, server_port, fun() -> 6666 end),
+    meck:expect(icinga_cfg, client_hostname, fun() -> "dev-build" end),
+    meck:expect(icinga_cfg, server_password, fun() -> "pass" end),
+    meck:expect(icinga_cfg, server_timeout, fun() -> 7500 end),
 
-    Cmd = "echo \"dev-build\tservice\t0\tcomplicated error msg\" | /sbin/send_nsca -c /etc/send_nsca.cfg -H localhost",
-    meck:expect(icinga_os, cmd, fun(X) -> X = Cmd, ok end),
+    meck:expect(send_nsca, send, fun
+                                     ("icserv", 6666, "pass", ok, "dev-build", <<"as_desc">>, <<"as_pl_output">>, 7500) -> ok;
+                                     ("icserv", 6666, "pass", ok, "dev-build", <<"s_desc">>, <<"s_pl_output">>, 7500) -> ok
+                                 end),
 
-    {noreply, _State} = icinga:handle_cast({submit, ok, "service", "complicated\nerror\nmsg"}, fake_state),
-    
-    meck:unload(icinga_os),
+    ok = icinga:submit_async(ok, ["as_", <<"desc">>], [<<"as">>, "_pl_output"]),
+    ok = icinga:submit_sync(ok, ["s_", <<"desc">>], [<<"s">>, "_pl_output"]),
+
+    meck:unload(send_nsca),
     meck:unload(icinga_cfg).
