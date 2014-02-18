@@ -2,7 +2,7 @@
 {application, icinga,
  [
   {description, "Erlang Icinga Client"},
-  {vsn, "0.1.0"},
+  {vsn, "0.9.0"},
   {registered, []},
   {applications, [
                   kernel,
