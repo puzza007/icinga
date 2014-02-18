@@ -1,8 +1,8 @@
 %%% -*- mode: erlang -*-
 {application, icinga,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "Erlang Icinga Client"},
+  {vsn, "0.1.0"},
   {registered, []},
   {applications, [
                   kernel,
